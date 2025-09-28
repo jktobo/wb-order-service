@@ -1,5 +1,4 @@
 services:
-  # Наше Go-приложение
   app:
     build: .
     ports:
@@ -13,20 +12,20 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_TOPIC=orders
     depends_on:
-      migrator: # <-- ИЗМЕНЕНИЕ: Теперь приложение зависит от успешного завершения мигратора
+      migrator:
         condition: service_completed_successfully
 
-  # НОВЫЙ СЕРВИС: Мигратор
   migrator:
     image: postgres:14-alpine
+    # Монтируем ЛОКАЛЬНУЮ ПАПКУ ./migrations в ПАПКУ /migrations ВНУТРИ контейнера.
     volumes:
-      - ./migrations:/migrations  # <-- ИЗМЕНЕНИЕ 1: Монтируем всю папку
+      - ./migrations:/migrations
     environment:
       - PGPASSWORD=password
     command: >
       sh -c "
         echo 'Ожидание запуска PostgreSQL...' &&
-        until pg_isready -h postgres -p 5432 -U user -d ordersdb; do # <-- ИЗМЕНЕНИЕ 2: Добавили '-d ordersdb'
+        until pg_isready -h postgres -p 5432 -U user -d ordersdb; do
           sleep 1;
         done;
         echo 'PostgreSQL готов. Запуск миграции...' &&
@@ -37,7 +36,6 @@ services:
       postgres:
         condition: service_healthy
 
-  # База данных PostgreSQL
   postgres:
     image: postgres:14-alpine
     environment:
@@ -48,14 +46,12 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # <-- ИЗМЕНЕНИЕ: Мы УБРАЛИ отсюда строку монтирования миграций!
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d ordersdb"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Брокер сообщений Kafka
   kafka:
     image: bitnami/kafka:latest
     ports:
