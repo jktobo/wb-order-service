@@ -2,6 +2,256 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск заказа</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --light-gray: #f8f9fa;
+            --gray: #6c757d;
+            --dark-gray: #343a40;
+            --border-color: #dee2e6;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding-top: 40px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: var(--dark-gray);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .search-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .search-form input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        .search-form button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .search-form button:hover {
+            background-color: #0056b3;
+        }
+        .result-area .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--light-gray);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .result-area .message {
+            color: var(--gray);
+            text-align: center;
+            padding: 20px;
+        }
+        .result-area .error {
+            color: var(--danger-color);
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .order-details h2 {
+            margin-top: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px 20px;
+        }
+        .data-grid dt {
+            font-weight: bold;
+            color: var(--gray);
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+        .items-table th {
+            background-color: var(--light-gray);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Найти информацию о заказе</h1>
+        <div class="search-form">
+            <input type="text" id="orderIdInput" placeholder="Введите Order UID">
+            <button id="searchButton">Найти</button>
+        </div>
+        
+        <div class="result-area">
+            <div id="loader" class="loader hidden"></div>
+            <div id="message" class="message">Введите ID заказа для получения информации.</div>
+            <div id="error" class="error hidden"></div>
+            <div id="order-output" class="order-details hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        const searchButton = document.getElementById('searchButton');
+        const orderIdInput = document.getElementById('orderIdInput');
+        const loader = document.getElementById('loader');
+        const message = document.getElementById('message');
+        const error = document.getElementById('error');
+        const orderOutput = document.getElementById('order-output');
+
+        searchButton.addEventListener('click', async () => {
+            const orderId = orderIdInput.value.trim();
+            if (!orderId) {
+                alert('Пожалуйста, введите Order UID.');
+                return;
+            }
+
+            // 1. Устанавливаем состояние загрузки
+            message.classList.add('hidden');
+            error.classList.add('hidden');
+            orderOutput.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/order/${orderId}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayOrder(data);
+                } else {
+                    const errorText = await response.text();
+                    displayError(`Ошибка ${response.status}: ${errorText}`);
+                }
+            } catch (err) {
+                displayError(`Сетевая ошибка: ${err.message}`);
+            } finally {
+                // 3. Прячем загрузчик в любом случае
+                loader.classList.add('hidden');
+            }
+        });
+        
+        function displayError(errorMessage) {
+            orderOutput.classList.add('hidden');
+            error.textContent = errorMessage;
+            error.classList.remove('hidden');
+        }
+
+        function displayOrder(data) {
+            error.classList.add('hidden');
+            
+            // 2. Форматируем и выводим данные
+            let itemsHtml = `
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Бренд</th>
+                            <th>Цена</th>
+                            <th>Кол-во</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.items.forEach(item => {
+                itemsHtml += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.brand}</td>
+                        <td>${item.price}</td>
+                        <td>1</td>
+                    </tr>
+                `;
+            });
+            itemsHtml += '</tbody></table>';
+
+            orderOutput.innerHTML = `
+                <h2>Общая информация</h2>
+                <dl class="data-grid">
+                    <dt>Order UID</dt><dd>${data.order_uid}</dd>
+                    <dt>Track Number</dt><dd>${data.track_number}</dd>
+                    <dt>Customer ID</dt><dd>${data.customer_id}</dd>
+                    <dt>Дата создания</dt><dd>${new Date(data.date_created).toLocaleString()}</dd>
+                </dl>
+                
+                <h2>Информация о доставке</h2>
+                <dl class="data-grid">
+                    <dt>Имя</dt><dd>${data.delivery.name}</dd>
+                    <dt>Телефон</dt><dd>${data.delivery.phone}</dd>
+                    <dt>Город</dt><dd>${data.delivery.city}</dd>
+                    <dt>Адрес</dt><dd>${data.delivery.address}</dd>
+                    <dt>Email</dt><dd>${data.delivery.email}</dd>
+                </dl>
+
+                <h2>Информация об оплате</h2>
+                <dl class="data-grid">
+                    <dt>Транзакция</dt><dd>${data.payment.transaction}</dd>
+                    <dt>Сумма</dt><dd>${data.payment.amount} ${data.payment.currency}</dd>
+                    <dt>Стоимость доставки</dt><dd>${data.payment.delivery_cost} ${data.payment.currency}</dd>
+                    <dt>Банк</dt><dd>${data.payment.bank}</dd>
+                </dl>
+
+                <h2>Состав заказа</h2>
+                ${itemsHtml}
+            `;
+            orderOutput.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
     <title>Поиск заказа</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 20px; }
@@ -57,4 +307,4 @@
         });
     </script>
 </body>
-</html>
+</html> -->
