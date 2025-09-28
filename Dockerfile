@@ -1,5 +1,5 @@
 # Этап 1: Сборка приложения
-FROM golang:1.19-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение. Флаги убирают отладочную информацию и уменьшают размер бинарника
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/app/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/main.go
 
 # Этап 2: Создание легковесного образа для запуска
 FROM alpine:latest

@@ -1,17 +1,10 @@
-version: '3.8'
-
 services:
   # Наше Go-приложение
   app:
-    build: . # Собирать из Dockerfile в текущей папке
+    build: .
     ports:
-      - "8081:8081" # Пробрасываем порт 8081 наружу
-    depends_on: # Запускать только после того, как postgres и kafka будут готовы
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    environment: # Переменные окружения для подключения к другим сервисам
+      - "8081:8081"
+    environment:
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=user
@@ -19,6 +12,30 @@ services:
       - DB_NAME=ordersdb
       - KAFKA_BROKER=kafka:9092
       - KAFKA_TOPIC=orders
+    depends_on:
+      migrator: # <-- ИЗМЕНЕНИЕ: Теперь приложение зависит от успешного завершения мигратора
+        condition: service_completed_successfully
+
+  # НОВЫЙ СЕРВИС: Мигратор
+  migrator:
+    image: postgres:14-alpine
+    volumes:
+      - ./migrations:/migrations  # <-- ИЗМЕНЕНИЕ 1: Монтируем всю папку
+    environment:
+      - PGPASSWORD=password
+    command: >
+      sh -c "
+        echo 'Ожидание запуска PostgreSQL...' &&
+        until pg_isready -h postgres -p 5432 -U user -d ordersdb; do # <-- ИЗМЕНЕНИЕ 2: Добавили '-d ordersdb'
+          sleep 1;
+        done;
+        echo 'PostgreSQL готов. Запуск миграции...' &&
+        psql -h postgres -U user -d ordersdb -f /migrations/01_init.sql &&
+        echo 'Миграция успешно завершена.'
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # База данных PostgreSQL
   postgres:
@@ -28,11 +45,11 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: ordersdb
     ports:
-      - "5432:5432"
-    volumes: # Сохраняем данные БД между перезапусками
+      - "5433:5432"
+    volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
-    healthcheck: # Проверка, что БД запустилась и готова к работе
+      # <-- ИЗМЕНЕНИЕ: Мы УБРАЛИ отсюда строку монтирования миграций!
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d ordersdb"]
       interval: 5s
       timeout: 5s
@@ -51,12 +68,78 @@ services:
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true # Автоматически создавать топик 'orders'
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
     healthcheck:
       test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-volumes: # Определяем "хранилища" для данных
+volumes:
   postgres_data:
+
+
+
+
+# version: '3.8'
+
+# services:
+#   # Наше Go-приложение
+#   app:
+#     build: . # Собирать из Dockerfile в текущей папке
+#     ports:
+#       - "8081:8081" # Пробрасываем порт 8081 наружу
+#     depends_on: # Запускать только после того, как postgres и kafka будут готовы
+#       postgres:
+#         condition: service_healthy
+#       kafka:
+#         condition: service_healthy
+#     environment: # Переменные окружения для подключения к другим сервисам
+#       - DB_HOST=postgres
+#       - DB_PORT=5432
+#       - DB_USER=user
+#       - DB_PASSWORD=password
+#       - DB_NAME=ordersdb
+#       - KAFKA_BROKER=kafka:9092
+#       - KAFKA_TOPIC=orders
+
+#   # База данных PostgreSQL
+#   postgres:
+#     image: postgres:14-alpine
+#     environment:
+#       POSTGRES_USER: user
+#       POSTGRES_PASSWORD: password
+#       POSTGRES_DB: ordersdb
+#     ports:
+#       - "5433:5432"
+#     volumes: # Сохраняем данные БД между перезапусками
+#       - postgres_data:/var/lib/postgresql/data
+#       - ./migrations:/docker-entrypoint-initdb.d
+#     healthcheck: # Проверка, что БД запустилась и готова к работе
+#       test: ["CMD-SHELL", "pg_isready -U user -d ordersdb"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+
+#   # Брокер сообщений Kafka
+#   kafka:
+#     image: bitnami/kafka:latest
+#     ports:
+#       - "9092:9092"
+#     environment:
+#       - KAFKA_CFG_NODE_ID=0
+#       - KAFKA_CFG_PROCESS_ROLES=controller,broker
+#       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+#       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+#       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+#       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true # Автоматически создавать топик 'orders'
+#     healthcheck:
+#       test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+# volumes: # Определяем "хранилища" для данных
+#   postgres_data:

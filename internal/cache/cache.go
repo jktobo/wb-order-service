@@ -1,9 +1,8 @@
 package cache
-package cache
 
 import (
 	"fmt"
-	"order-service/internal/model"
+	"wb-order-service/internal/model"
 	"sync" // Пакет для безопасной работы с данными из нескольких горутин
 )
 

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск заказа</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+        input { width: 300px; padding: 8px; }
+        button { padding: 8px 15px; }
+        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; }
+        #error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Найти информацию о заказе</h1>
+    <div>
+        <input type="text" id="orderIdInput" placeholder="Введите Order UID">
+        <button id="searchButton">Найти</button>
+    </div>
+    
+    <h2>Результат:</h2>
+    <div id="error"></div>
+    <pre id="resultOutput">Здесь будут данные о заказе...</pre>
+
+    <script>
+        const searchButton = document.getElementById('searchButton');
+        const orderIdInput = document.getElementById('orderIdInput');
+        const resultOutput = document.getElementById('resultOutput');
+        const errorOutput = document.getElementById('error');
+
+        searchButton.addEventListener('click', async () => {
+            const orderId = orderIdInput.value.trim();
+            if (!orderId) {
+                alert('Пожалуйста, введите Order UID.');
+                return;
+            }
+
+            resultOutput.textContent = 'Загрузка...';
+            errorOutput.textContent = '';
+
+            try {
+                // Обращаемся к нашему Go API
+                const response = await fetch(`/order/${orderId}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultOutput.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    const errorText = await response.text();
+                    resultOutput.textContent = '---';
+                    errorOutput.textContent = `Ошибка ${response.status}: ${errorText}`;
+                }
+            } catch (error) {
+                resultOutput.textContent = '---';
+                errorOutput.textContent = `Сетевая ошибка: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

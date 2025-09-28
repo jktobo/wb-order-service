@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json" // <-- Добавлен импорт для работы с JSON
 	"fmt"
-	"order-service/internal/model" // <-- Добавлен импорт ваших моделей
+	"wb-order-service/internal/model" // <-- Добавлен импорт ваших моделей
 
 	_ "github.com/lib/pq" // Драйвер для PostgreSQL
 )
